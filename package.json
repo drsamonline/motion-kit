@@ -1,0 +1,10 @@
+{
+  "name": "motion-kit",
+  "version": "1.0.0",
+  "private": true,
+  "description": "motion-kit \u2014 springs, easings and transitions as numbers: the Lobe UI motion vocabulary in one zero-dependency file.",
+  "scripts": {
+    "test": "node test-node.js"
+  },
+  "license": "SEE LICENSE IN LICENSE"
+}

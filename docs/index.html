@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="color-scheme" content="dark light"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>motion-kit — springs, easings and transitions</title>
+<style>
+:root{--bg:#0f1115;--card:#171a21;--ink:#e7e9ee;--mut:#9aa3b2;--line:#252a34;--acc:#22c55e}
+:root[data-theme="light"]{color-scheme:light;--bg:#f6f7f9;--card:#fff;--ink:#0f1115;--mut:#4b5563;--line:#dfe3e8;--acc:#15803d}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+header,main,footer{max-width:860px;margin:0 auto;padding:24px 20px}
+h1{margin:0 0 6px;font-size:24px}h2{margin:34px 0 10px;font-size:17px}
+.mut{color:var(--mut)}
+.theme-btn{float:right;width:30px;height:30px;margin:2px 0 0 10px;padding:0;background:transparent;color:inherit;
+  border:1px solid var(--line);border-radius:50%;cursor:pointer;opacity:.8}
+.theme-btn:hover{opacity:1}.theme-btn svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round}
+.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));margin:16px 0}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px}
+.card h3{margin:0 0 2px;font-size:14px}.card p{margin:0 0 10px;color:var(--mut);font-size:12px}
+.stage{position:relative;height:64px;display:grid;place-items:center;overflow:hidden;border-radius:8px;background:rgba(127,127,127,.08)}
+.pill{width:100%;padding:9px 0;text-align:center;border-radius:8px;background:var(--acc);color:#06210f;font-weight:600;font-size:13px;cursor:pointer}
+.drawer-box{position:absolute;top:0;bottom:0;right:0;width:52%;border-radius:8px;background:var(--acc);color:#06210f;
+  display:grid;place-items:center;font-size:12px;font-weight:600}
+.backdrop-box{position:absolute;inset:0;background:rgba(0,0,0,.55);border-radius:8px;display:grid;place-items:center;color:#fff;font-size:12px}
+.row{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin:10px 0}
+label{font-size:13px;color:var(--mut);display:flex;gap:8px;align-items:center}
+input[type=range]{width:150px;accent-color:var(--acc)}
+code{background:rgba(127,127,127,.14);padding:1px 5px;border-radius:4px;font-size:13px}
+.plot{width:100%;height:170px;background:var(--card);border:1px solid var(--line);border-radius:12px}
+.wave{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}
+.wave div{padding:12px 0;text-align:center;border-radius:8px;background:var(--acc);color:#06210f;font-weight:600;font-size:12px}
+table{border-collapse:collapse;width:100%;font-size:13px;margin:10px 0}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line)}
+th{color:var(--mut);font-weight:600}
+</style></head><body>
+<header>
+  <button class="theme-btn" id="theme" title="Switch theme" aria-label="Switch theme">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M19 5l-1.5 1.5M6.5 17.5L5 19"/></svg>
+  </button>
+  <h1>motion-kit</h1>
+  <p class="mut">Springs, easings and transitions as numbers. Zero dependencies, one file, no build step.
+  The vocabulary is ported from <a href="https://github.com/lobehub/lobe-mygo">lobe-mygo</a> <code>pkg/motion</code>.</p>
+</header>
+
+<main>
+  <h2>Transition presets</h2>
+  <p class="mut">Click a card. Each runs the real preset through <code>M.apply()</code>.</p>
+  <div class="grid" id="presets"></div>
+
+  <h2>Stagger</h2>
+  <p class="mut"><code>M.stagger(6, {each: 60})</code> — delays for a list.</p>
+  <div class="wave" id="wave"></div>
+
+  <h2>Spring playground</h2>
+  <p class="mut">A spring asked for by settle time: <code>M.smooth(300)</code> becomes stiffness and damping.</p>
+  <div class="row">
+    <label>settle <input type="range" id="settle" min="80" max="900" step="10" value="300"><span id="settleV">300ms</span></label>
+    <label>damping ratio <input type="range" id="zeta" min="20" max="150" step="5" value="100"><span id="zetaV">1.00</span></label>
+  </div>
+  <svg class="plot" id="plot" viewBox="0 0 600 170" preserveAspectRatio="none" role="img" aria-label="spring response curve"></svg>
+  <p class="mut" id="springInfo"></p>
+
+  <h2>Easing curves</h2>
+  <table id="eases"><thead><tr><th>name</th><th>cubic-bezier</th><th>at 0.25</th><th>at 0.5</th><th>at 0.75</th></tr></thead><tbody></tbody></table>
+</main>
+
+<footer class="mut" style="font-size:13px">
+  <p>PolyForm Noncommercial 1.0.0. (c) 2026 Dr Sohil Momin. Part of the Forge system.</p>
+</footer>
+
+<script src="../motion-kit.js"></script>
+<script>
+var M = window.Motion;
+
+/* ---------- theme ---------- */
+(function(){
+  var key = "motion-kit-theme";
+  function apply(t){ document.documentElement.setAttribute("data-theme", t); }
+  var saved = null; try { saved = localStorage.getItem(key); } catch(e){}
+  var system = window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+  apply(saved || system);
+  document.getElementById("theme").addEventListener("click", function(){
+    var next = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
+    apply(next); try { localStorage.setItem(key, next); } catch(e){}
+  });
+})();
+
+/* ---------- presets ---------- */
+var PRESETS = [
+  { id:"popup",    label:"popup",    note:"150ms in, 75ms out, scale 0.96",
+    build:function(){ return M.transition.popup(); },
+    html:'<div class="pill">Popup</div>' },
+  { id:"modal",    label:"modal",    note:"220ms soft, scale 0.97 -> 0.98",
+    build:function(){ return M.transition.modal(); },
+    html:'<div class="pill">Modal</div>' },
+  { id:"tooltip",  label:"tooltip",  note:"bouncy spring, 100ms exit",
+    build:function(){ return M.transition.tooltip(); },
+    html:'<div class="pill">Tooltip</div>' },
+  { id:"backdrop", label:"backdrop", note:"180ms fade, soft curve",
+    build:function(){ return M.transition.backdrop(); },
+    html:'<div class="backdrop-box">Backdrop</div>' },
+  { id:"drawer",   label:"drawer",   note:"300ms from the right edge",
+    build:function(){ return M.transition.drawer(M.SIDE.right); },
+    html:'<div class="drawer-box">Drawer</div>' },
+  { id:"toast",    label:"toast",    note:"400ms, toast curve, 150% travel",
+    build:function(){ return M.transition.toast(M.SIDE.bottom); },
+    html:'<div class="pill">Toast</div>' }
+];
+
+var host = document.getElementById("presets");
+PRESETS.forEach(function(p){
+  var card = document.createElement("div");
+  card.className = "card";
+  card.innerHTML = '<h3>' + p.label + '</h3><p>' + p.note + '</p><div class="stage">' + p.html + '</div>';
+  var stage = card.querySelector(".stage");
+  var target = stage.firstElementChild;
+  target.addEventListener("click", function(){
+    var tr = p.build();
+    M.apply(target, tr, "enter").then(function(){
+      setTimeout(function(){ M.apply(target, tr, "exit"); }, 420);
+    });
+  });
+  host.appendChild(card);
+});
+
+/* ---------- stagger ---------- */
+(function(){
+  var wave = document.getElementById("wave");
+  for (var i = 0; i < 6; i++) { var d = document.createElement("div"); d.textContent = i + 1; wave.appendChild(d); }
+  wave.addEventListener("click", function(){
+    var delays = M.stagger(6, { each: 60 });
+    Array.prototype.forEach.call(wave.children, function(el, i){
+      el.style.transition = "none"; el.style.opacity = 0; el.style.transform = "translateY(10px)";
+      setTimeout(function(){
+        el.style.transition = "opacity 240ms " + M.ease.out.css + ", transform 240ms " + M.ease.out.css;
+        el.style.opacity = 1; el.style.transform = "none";
+      }, delays[i]);
+    });
+  });
+})();
+
+/* ---------- spring playground ---------- */
+function draw(){
+  var settle = +document.getElementById("settle").value;
+  var zeta = +document.getElementById("zeta").value / 100;
+  document.getElementById("settleV").textContent = settle + "ms";
+  document.getElementById("zetaV").textContent = zeta.toFixed(2);
+
+  var preset = M.preset(zeta, 0.001, settle);
+  var sp = M.spring(preset);
+  var W = 600, H = 170, PAD = 10;
+  var horizon = settle * 1.8;
+  var pts = [];
+  var minY = 1, maxY = 1;
+  for (var ms = 0; ms <= horizon; ms += Math.max(1, horizon / 300)) {
+    var v = sp.at(ms);
+    minY = Math.min(minY, v); maxY = Math.max(maxY, v);
+    pts.push([PAD + (ms / horizon) * (W - 2 * PAD), 0, v]);
+  }
+  var lo = Math.min(0, minY), hi = Math.max(1, maxY);
+  var span = Math.max(0.05, hi - lo);
+  var path = pts.map(function(p, i){
+    var x = p[0], y = H - PAD - ((p[2] - lo) / span) * (H - 2 * PAD);
+    return (i ? "L" : "M") + x.toFixed(1) + " " + y.toFixed(1);
+  }).join(" ");
+
+  var targetY = H - PAD - ((1 - lo) / span) * (H - 2 * PAD);
+  var settleX = PAD + ((settle / horizon) * (W - 2 * PAD));
+
+  document.getElementById("plot").innerHTML =
+    '<line x1="0" y1="' + targetY.toFixed(1) + '" x2="' + W + '" y2="' + targetY.toFixed(1) + '" stroke="currentColor" stroke-opacity=".25" stroke-dasharray="4 4"/>' +
+    '<line x1="' + settleX.toFixed(1) + '" y1="0" x2="' + settleX.toFixed(1) + '" y2="' + H + '" stroke="currentColor" stroke-opacity=".2" stroke-dasharray="4 4"/>' +
+    '<path d="' + path + '" fill="none" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round"/>';
+
+  var overshoot = Math.max(0, (maxY - 1) * 100);
+  document.getElementById("springInfo").innerHTML =
+    "stiffness <code>" + preset.stiffness.toFixed(1) + "</code> · damping <code>" + preset.damping.toFixed(2) +
+    "</code> · mass <code>1</code> · zeta <code>" + sp.zeta.toFixed(2) +
+    "</code> · overshoot <code>" + overshoot.toFixed(1) + "%</code> · settles at <code>" + sp.settle(0.001) + "ms</code>";
+}
+document.getElementById("settle").addEventListener("input", draw);
+document.getElementById("zeta").addEventListener("input", draw);
+draw();
+
+/* ---------- easing table ---------- */
+(function(){
+  var body = document.querySelector("#eases tbody");
+  Object.keys(M.ease).forEach(function(name){
+    var f = M.ease[name];
+    var tr = document.createElement("tr");
+    tr.innerHTML = "<td>" + name + "</td><td><code>" + f.css.replace("cubic-bezier", "") + "</code></td>" +
+      "<td>" + f(0.25).toFixed(3) + "</td><td>" + f(0.5).toFixed(3) + "</td><td>" + f(0.75).toFixed(3) + "</td>";
+    body.appendChild(tr);
+  });
+})();
+</script>
+</body></html>
