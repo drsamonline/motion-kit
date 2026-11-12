@@ -36,3 +36,14 @@ await T.motion.apply(el, T.motion.transition.modal(), "enter");
 
 This repository stays readable so that anything vendoring it still resolves; the code here is
 frozen at the last version before the merge.
+
+## Tests
+
+The suite in this repository still runs and still passes — **78 passed, 0 failed**
+(`node test-node.js`). `tools/check-claims.js` reads that count out of this file and
+fails the build when it drifts, which is why the number is written here rather than
+described in prose.
+
+The merge into `tokens-kit` rewrote this README as a notice and dropped the count with
+it, so the gate went red on a suite that was green. That is the gate doing its job: a
+number a document states has to be a number somebody can check.
